@@ -10,6 +10,21 @@ st.set_page_config(layout="wide")
 API_KEY = st.secrets["API_KEY"]
 
 
+import os
+import requests
+
+def download_file(url, filename):
+    if not os.path.exists(filename):
+        r = requests.get(url)
+        with open(filename, 'wb') as f:
+            f.write(r.content)
+
+movies_url = "https://drive.google.com/uc?id=1Sdq6Fk-neGcXCpdNJ66TMg18aH2yOEni"
+similarity_url = "https://drive.google.com/uc?id=1uSwY3uTOEIm_WtgknPIvpwABJV-bR2Qm"
+
+download_file(movies_url, "movies.pkl")
+download_file(similarity_url, "similarity.pkl")
+
 movies = pickle.load(open('movies.pkl','rb'))
 similarity = pickle.load(open('similarity.pkl','rb'))
 
