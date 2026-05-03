@@ -2,40 +2,54 @@ import streamlit as st
 import pickle
 import requests
 import base64
+import os
 
 
 st.set_page_config(layout="wide")
 
-
+#  API
 API_KEY = st.secrets["API_KEY"]
 
+#  DOWNLOAD FROM GOOGLE DRIVE
+def download_file_from_gdrive(file_id, destination):
+    URL = "https://drive.google.com/uc?export=download"
 
-import os
-import requests
+    session = requests.Session()
+    response = session.get(URL, params={"id": file_id}, stream=True)
 
-def download_file(url, filename):
-    if not os.path.exists(filename):
-        r = requests.get(url)
-        with open(filename, 'wb') as f:
-            f.write(r.content)
+    # Handle large file warning
+    for key, value in response.cookies.items():
+        if key.startswith("download_warning"):
+            response = session.get(URL, params={"id": file_id, "confirm": value}, stream=True)
+            break
 
-movies_url = "https://drive.google.com/uc?id=1Sdq6Fk-neGcXCpdNJ66TMg18aH2yOEni"
-similarity_url = "https://drive.google.com/uc?id=1uSwY3uTOEIm_WtgknPIvpwABJV-bR2Qm"
+    with open(destination, "wb") as f:
+        for chunk in response.iter_content(32768):
+            if chunk:
+                f.write(chunk)
 
-download_file(movies_url, "movies.pkl")
-download_file(similarity_url, "similarity.pkl")
+def ensure_files():
+    if not os.path.exists("movies.pkl"):
+        download_file_from_gdrive("1Sdq6Fk-neGcXCpdNJ66TMg18aH2yOEni", "movies.pkl")
 
+    if not os.path.exists("similarity.pkl"):
+        download_file_from_gdrive("1uSwY3uTOEIm_WtgknPIvpwABJV-bR2Qm", "similarity.pkl")
+
+# Download files 
+ensure_files()
+
+# LOAD
 movies = pickle.load(open('movies.pkl','rb'))
 similarity = pickle.load(open('similarity.pkl','rb'))
 
-
+# BACKGROUND
 def get_base64_image(image_file):
     with open(image_file, "rb") as f:
         return base64.b64encode(f.read()).decode()
 
 bg_img = get_base64_image("bg.jpg")
 
-
+# STYLE
 st.markdown(f"""
 <style>
 
@@ -70,7 +84,7 @@ img:hover {{
 </style>
 """, unsafe_allow_html=True)
 
-# FETCH MOVIE DATA 
+#  FETCH DATA 
 def fetch_movie_data(title):
     try:
         url = f"http://www.omdbapi.com/?t={title}&apikey={API_KEY}"
@@ -84,13 +98,13 @@ def fetch_movie_data(title):
     except:
         return "https://via.placeholder.com/300x450?text=No+Image", "N/A", "N/A"
 
-# RECOMMEND
+# RECOMMEND 
 def recommend(movie):
     index = movies[movies['title'] == movie].index[0]
     selected_industry = movies.iloc[index]['industry']
 
     distances = similarity[index]
-    movie_list = sorted(list(enumerate(distances)), reverse=True, key=lambda x: x[1])
+    movie_list = sorted(list(enumerate(distances)), key=lambda x: x[1], reverse=True)
 
     names = []
 
@@ -103,8 +117,7 @@ def recommend(movie):
 
     return names
 
-#UI
-
+#  UI 
 st.markdown("""
 <h1 style='text-align: center; color: #e50914; font-size: 50px;'>
 🎬 Netflix Recommender
