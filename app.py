@@ -3,46 +3,33 @@ import pickle
 import requests
 import base64
 import os
+import gdown
 
 
 st.set_page_config(layout="wide")
 
-#  API
+
 API_KEY = st.secrets["API_KEY"]
 
-#  DOWNLOAD FROM GOOGLE DRIVE
-def download_file_from_gdrive(file_id, destination):
-    URL = "https://drive.google.com/uc?export=download"
+# DOWNLOAD FILES
+def download_file(file_id, output):
+    if not os.path.exists(output):
+        url = f"https://drive.google.com/uc?id={file_id}"
+        gdown.download(url, output, quiet=False)
 
-    session = requests.Session()
-    response = session.get(URL, params={"id": file_id}, stream=True)
+# Google Drive file IDs
+MOVIES_ID = "1Sdq6Fk-neGcXCpdNJ66TMg18aH2yOEni"
+SIMILARITY_ID = "1uSwY3uTOEIm_WtgknPIvpwABJV-bR2Qm"
 
-    # Handle large file warning
-    for key, value in response.cookies.items():
-        if key.startswith("download_warning"):
-            response = session.get(URL, params={"id": file_id, "confirm": value}, stream=True)
-            break
+# Download once
+download_file(MOVIES_ID, "movies.pkl")
+download_file(SIMILARITY_ID, "similarity.pkl")
 
-    with open(destination, "wb") as f:
-        for chunk in response.iter_content(32768):
-            if chunk:
-                f.write(chunk)
+#  LOAD
+movies = pickle.load(open("movies.pkl", "rb"))
+similarity = pickle.load(open("similarity.pkl", "rb"))
 
-def ensure_files():
-    if not os.path.exists("movies.pkl"):
-        download_file_from_gdrive("1Sdq6Fk-neGcXCpdNJ66TMg18aH2yOEni", "movies.pkl")
-
-    if not os.path.exists("similarity.pkl"):
-        download_file_from_gdrive("1uSwY3uTOEIm_WtgknPIvpwABJV-bR2Qm", "similarity.pkl")
-
-# Download files 
-ensure_files()
-
-# LOAD
-movies = pickle.load(open('movies.pkl','rb'))
-similarity = pickle.load(open('similarity.pkl','rb'))
-
-# BACKGROUND
+#  BACKGROUND 
 def get_base64_image(image_file):
     with open(image_file, "rb") as f:
         return base64.b64encode(f.read()).decode()
@@ -117,7 +104,7 @@ def recommend(movie):
 
     return names
 
-#  UI 
+#  UI
 st.markdown("""
 <h1 style='text-align: center; color: #e50914; font-size: 50px;'>
 🎬 Netflix Recommender
